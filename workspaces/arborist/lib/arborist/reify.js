@@ -153,6 +153,7 @@ module.exports = cls => class Reifier extends cls {
     this[_omitOptional] = omit.has('optional')
     this[_omitPeer] = omit.has('peer')
 
+    // X0.0 - 全新安装
     // start tracker block
     this.addTracker('reify')
     process.emit('time', 'reify')

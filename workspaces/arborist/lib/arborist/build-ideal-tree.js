@@ -102,6 +102,7 @@ const _idealTreePrune = Symbol.for('idealTreePrune')
 module.exports = cls => class IdealTreeBuilder extends cls {
   constructor (options) {
     super(options)
+    // X0.1
 
     // normalize trailing slash
     const registry = options.registry || 'https://registry.npmjs.org'
@@ -167,6 +168,7 @@ module.exports = cls => class IdealTreeBuilder extends cls {
 
   // public method
   async buildIdealTree (options = {}) {
+    // X1
     if (this.idealTree) {
       return this.idealTree
     }
@@ -195,15 +197,20 @@ module.exports = cls => class IdealTreeBuilder extends cls {
     // from there, we start adding nodes to it to satisfy the deps requested
     // by the package.json in the root.
 
+    // X2
     this[_parseSettings](options)
 
     // start tracker block
     this.addTracker('idealTree')
 
     try {
+      // X3
       await this[_initTree]()
+      // X4 - upgrade old lock, skip
       await this[_inflateAncientLockfile]()
+      // X5
       await this[_applyUserRequests](options)
+      // X6
       await this[_buildDeps]()
       await this[_fixDepFlags]()
       await this[_pruneFailedOptional]()
@@ -246,6 +253,7 @@ module.exports = cls => class IdealTreeBuilder extends cls {
       update.names = []
     }
 
+    // X2.1
     this[_complete] = !!options.complete
     this[_preferDedupe] = !!options.preferDedupe
 
@@ -282,10 +290,12 @@ module.exports = cls => class IdealTreeBuilder extends cls {
   // load the initial tree, either the virtualTree from a shrinkwrap,
   // or just the root node from a package.json
   [_initTree] () {
+    // X3.1
     process.emit('time', 'idealTree:init')
     return (
       this[_global] ? this[_globalRootNode]()
       : rpj(this.path + '/package.json').then(
+        // X3.1.1
         pkg => this[_rootNodeFromPackage](pkg),
         er => {
           if (er.code === 'EJSONPARSE') {
@@ -294,6 +304,7 @@ module.exports = cls => class IdealTreeBuilder extends cls {
           return this[_rootNodeFromPackage]({})
         }
       ))
+      // X3.2
       .then(root => this[_loadWorkspaces](root))
       // ok to not have a virtual tree.  probably initial install.
       // When updating all, we load the shrinkwrap, but don't bother
@@ -306,16 +317,19 @@ module.exports = cls => class IdealTreeBuilder extends cls {
           lockfileVersion: this.options.lockfileVersion,
           resolveOptions: this.options,
         }).then(meta => Object.assign(root, { meta }))
+        // X3.3 load a null virtual tree
         : this.loadVirtual({ root }))
 
       // if we don't have a lockfile to go from, then start with the
       // actual tree, so we only make the minimum required changes.
       // don't do this for global installs or updates, because in those
       // cases we don't use a lockfile anyway.
+      //
       // Load on a new Arborist object, so the Nodes aren't the same,
       // or else it'll get super confusing when we change them!
       .then(async root => {
         if ((!this[_updateAll] && !this[_global] && !root.meta.loadedFromDisk) || (this[_global] && this[_updateNames].length)) {
+          // X3.4 if there is no lock, then
           await new this.constructor(this.options).loadActual({ root })
           const tree = root.target
           // even though we didn't load it from a package-lock.json FILE,
@@ -334,11 +348,13 @@ module.exports = cls => class IdealTreeBuilder extends cls {
       .then(tree => {
         // search the virtual tree for invalid edges, if any are found add their source to
         // the depsQueue so that we'll fix it later
+        // X3.5 from here, origin fake virtual tree's node were all replaced by actual tree
         depth({
           tree,
           getChildren: (node) => [...node.edgesOut.values()].map(edge => edge.to),
           filter: node => node,
           visit: node => {
+            // X3.6 push edge's from to queue
             for (const edge of node.edgesOut.values()) {
               if (!edge.valid) {
                 this[_depsQueue].push(node)
@@ -377,6 +393,7 @@ module.exports = cls => class IdealTreeBuilder extends cls {
     // before ever loading trees.
     // TODO: make buildIdealTree() and loadActual handle a missing root path,
     // or a symlink to a missing target, and let reify() create it as needed.
+    // X3.1.2
     const real = await realpath(this.path, this[_rpcache], this[_stcache])
     const Cls = real === this.path ? Node : Link
     const root = new Cls({
@@ -418,6 +435,7 @@ module.exports = cls => class IdealTreeBuilder extends cls {
     process.emit('time', 'idealTree:userRequests')
     const tree = this.idealTree.target
 
+    // X5.1 workspaces from parameters
     if (!this[_workspaces].length) {
       await this[_applyUserRequestsToNode](tree, options)
     } else {
@@ -438,12 +456,14 @@ module.exports = cls => class IdealTreeBuilder extends cls {
     // If we have a list of package names to update, and we know it's
     // going to update them wherever they are, add any paths into those
     // named nodes to the buildIdealTree queue.
+    // X5.2 fresh install, skip
     if (!this[_global] && this[_updateNames].length) {
       this[_queueNamedUpdates]()
     }
 
     // global updates only update the globalTop nodes, but we need to know
     // that they're there, and not reinstall the world unnecessarily.
+    // X5.3 fresh install, skip
     const globalExplicitUpdateNames = []
     if (this[_global] && (this[_updateAll] || this[_updateNames].length)) {
       const nm = resolve(this.path, 'node_modules')
@@ -502,6 +522,7 @@ module.exports = cls => class IdealTreeBuilder extends cls {
       this[_explicitRequests].add(tree.edgesOut.get(name))
     }
 
+    // X5.4 add root node, may be pushed cuz of missing subdeps
     this[_depsQueue].push(tree)
   }
 
@@ -765,6 +786,7 @@ This is a one-time fix-up, please be patient...
   // package deps, which may be partly or entirely incomplete, invalid
   // or extraneous.
   [_buildDeps] () {
+    // X6.1
     process.emit('time', 'idealTree:buildDeps')
     const tree = this.idealTree.target
     tree.assertRootOverrides()
@@ -778,6 +800,7 @@ This is a one-time fix-up, please be patient...
   }
 
   async [_buildDepStep] () {
+    // X6.2
     // removes tracker of previous dependency in the queue
     if (this[_currentDep]) {
       const { location, name } = this[_currentDep]
@@ -787,6 +810,7 @@ This is a one-time fix-up, please be patient...
     }
 
     if (!this[_depsQueue].length) {
+      // X6.10
       return this[_resolveLinks]()
     }
 
@@ -821,6 +845,7 @@ This is a one-time fix-up, please be patient...
     // ideal tree by reading bundles/shrinkwraps in place.
     // Don't bother if the node is from the actual tree and hasn't
     // been resolved, because we can't fetch it anyway, could be anything!
+    // X6.3 bundle & shrinkwrap, skip in most caces, check later
     const crackOpen = this[_complete] &&
       node !== this.idealTree &&
       node.resolved &&
@@ -889,6 +914,7 @@ This is a one-time fix-up, please be patient...
     // Set `preferDedupe: true` in the options to replace the shallower
     // dep if allowed.
 
+    // X6.4
     const tasks = []
     const peerSource = this[_peerSetSource].get(node) || node
     for (const edge of this[_problemEdges](node)) {
@@ -902,6 +928,7 @@ This is a one-time fix-up, please be patient...
       // so we VR the node itself if the edge is not a peer
       const source = edge.peer ? peerSource : node
 
+      // X6.4.2
       const virtualRoot = this[_virtualRoot](source, true)
       // reuse virtual root if we already have one, but don't
       // try to do the override ahead of time, since we MAY be able
@@ -1102,6 +1129,7 @@ This is a one-time fix-up, please be patient...
   }
 
   [_virtualRoot] (node, reuse = false) {
+    // X6.4.2.1
     if (reuse && this[_virtualRoots].has(node)) {
       return this[_virtualRoots].get(node)
     }
@@ -1145,6 +1173,7 @@ This is a one-time fix-up, please be patient...
       : node.package.bundleDependencies
     const bundled = new Set(bd || [])
 
+    // X6.4.1 filter problem edges
     return [...node.edgesOut.values()]
       .filter(edge => {
         // If it's included in a bundle, we take whatever is specified.

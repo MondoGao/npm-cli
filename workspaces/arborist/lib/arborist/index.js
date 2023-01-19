@@ -66,6 +66,7 @@ const lockfileVersion = lfv => {
 
 class Arborist extends Base {
   constructor (options = {}) {
+    // X0 - 全新安装
     process.emit('time', 'arborist:ctor')
     super(options)
     this.options = {

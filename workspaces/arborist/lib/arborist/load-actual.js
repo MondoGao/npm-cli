@@ -81,6 +81,7 @@ module.exports = cls => class ActualLoader extends cls {
     if (this.actualTree) {
       return this.actualTree
     }
+    // X3.4.1
     if (!this[_actualTreePromise]) {
       // allow the user to set options on the ctor as well.
       // XXX: deprecate separate method options objects.
@@ -111,6 +112,7 @@ module.exports = cls => class ActualLoader extends cls {
 
   async [_loadActual] (options) {
     // mostly realpath to throw if the root doesn't exist
+    // X3.4.2
     const {
       global = false,
       filter = () => true,
@@ -138,6 +140,7 @@ module.exports = cls => class ActualLoader extends cls {
       }
     } else {
       // not in global mode, hidden lockfile is allowed, load root pkg too
+      // X3.4.3
       this[_actualTree] = await this[_loadFSNode]({
         path: this.path,
         real: await realpath(this.path, this[_rpcache], this[_stcache]),
@@ -157,6 +160,7 @@ module.exports = cls => class ActualLoader extends cls {
           resolveOptions: this.options,
         })
 
+        // X3.4.4 firstInstall doesn't have hidden lockfile, skip
         if (meta.loadedFromDisk) {
           this[_actualTree].meta = meta
           // have to load on a new Arborist object, so we don't assign
@@ -174,6 +178,7 @@ module.exports = cls => class ActualLoader extends cls {
         }
       }
 
+      // X3.4.5 dump shrinkwrap
       const meta = await Shrinkwrap.load({
         path: this[_actualTree].path,
         lockfileVersion: this.options.lockfileVersion,
@@ -182,11 +187,14 @@ module.exports = cls => class ActualLoader extends cls {
       this[_actualTree].meta = meta
     }
 
+    // X3.4.6
     await this[_loadFSTree](this[_actualTree])
+    // X3.4.7
     await this[_loadWorkspaces](this[_actualTree])
 
     // if there are workspace targets without Link nodes created, load
     // the targets, so that we know what they are.
+    // X3.4.8 load workspaces fs children
     if (this[_actualTree].workspaces && this[_actualTree].workspaces.size) {
       const promises = []
       for (const path of this[_actualTree].workspaces.values()) {
@@ -208,6 +216,7 @@ module.exports = cls => class ActualLoader extends cls {
     // node_modules tree sense, of any link targets.  this allows us to
     // resolve deps that node will find, but a legacy npm view of the
     // world would not have noticed.
+    // X3.4.9 workspace has fsParent
     for (const path of this[_topNodes]) {
       const node = this[_cache].get(path)
       if (node && !node.parent && !node.fsParent) {
@@ -220,6 +229,7 @@ module.exports = cls => class ActualLoader extends cls {
       }
     }
 
+    // X3.4.10 move internal _actualTree to root
     this[_transplant](root)
 
     if (global) {
@@ -239,6 +249,7 @@ module.exports = cls => class ActualLoader extends cls {
   }
 
   [_transplant] (root) {
+    // X3.4.10.1
     if (!root || root === this[_actualTree]) {
       return
     }
@@ -259,6 +270,7 @@ module.exports = cls => class ActualLoader extends cls {
   }
 
   async [_loadFSNode] ({ path, parent, real, root, loadOverrides, useRootOverrides }) {
+    // X3.4.3.1
     if (!real) {
       try {
         real = await realpath(path, this[_rpcache], this[_stcache])
@@ -306,6 +318,7 @@ module.exports = cls => class ActualLoader extends cls {
       // Node which will attach it to its errors array (Link passes it along to
       // its target node)
       if (normalize(path) === real) {
+        // X3.4.3.2
         node = this[_newNode](params)
       } else {
         node = await this[_newLink](params)
@@ -319,6 +332,8 @@ module.exports = cls => class ActualLoader extends cls {
     // check it for an fsParent if it's a tree top.  there's a decent chance
     // it'll get parented later, making the fsParent scan a no-op, but better
     // safe than sorry, since it's cheap.
+
+    // X3.4.3.2.1
     const { parent, realpath } = options
     if (!parent) {
       this[_topNodes].add(realpath)
@@ -346,6 +361,7 @@ module.exports = cls => class ActualLoader extends cls {
   async [_loadFSTree] (node) {
     const did = this[_actualTreeLoaded]
     if (!did.has(node.target.realpath)) {
+      // X3.4.6.1 获取下级
       did.add(node.target.realpath)
       await this[_loadFSChildren](node.target)
       return Promise.all(
@@ -364,6 +380,7 @@ module.exports = cls => class ActualLoader extends cls {
       const kids = await readdirScoped(nm).then(paths => paths.map(p => p.replace(/\\/g, '/')))
       return Promise.all(
         // ignore . dirs and retired scoped package folders
+        // X3.4.6.2 readdir 里已过滤，这里应该没用了
         kids.filter(kid => !/^(@[^/]+\/)?\./.test(kid))
           .filter(kid => this[_filter](node, kid))
           .map(kid => this[_loadFSNode]({

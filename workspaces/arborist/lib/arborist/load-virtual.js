@@ -41,6 +41,7 @@ module.exports = cls => class VirtualLoader extends cls {
 
   // public method
   async loadVirtual (options = {}) {
+    // X3.3.1
     if (this.virtualTree) {
       return this.virtualTree
     }
@@ -49,6 +50,7 @@ module.exports = cls => class VirtualLoader extends cls {
     // XXX: deprecate separate reify() options object.
     options = { ...this.options, ...options }
 
+    // X3.3.2 注意 root 是由 build-ideal-tree 传入的根目录 pkg.json，全新安装没有 meta
     if (options.root && options.root.meta) {
       await this[loadFromShrinkwrap](options.root.meta, options.root)
       return treeCheck(this.virtualTree)
@@ -72,8 +74,10 @@ module.exports = cls => class VirtualLoader extends cls {
 
     this[rootOptionProvided] = options.root
 
+    // X3.3.3
     await this[loadFromShrinkwrap](s, root)
     root.assertRootOverrides()
+    // X3.3.4 debugOnly
     return treeCheck(this.virtualTree)
   }
 
@@ -84,6 +88,7 @@ module.exports = cls => class VirtualLoader extends cls {
   }
 
   async [loadFromShrinkwrap] (s, root) {
+    // X3.3.3.1
     if (!this[rootOptionProvided]) {
       // root is never any of these things, but might be a brand new
       // baby Node object that never had its dep flags calculated.
@@ -96,6 +101,7 @@ module.exports = cls => class VirtualLoader extends cls {
       this[flagsSuspect] = true
     }
 
+    // X3.3.3.2 s shrinkwrap, loadedFromDisk: false
     this[checkRootEdges](s, root)
     root.meta = s
     this.virtualTree = root
@@ -134,6 +140,7 @@ module.exports = cls => class VirtualLoader extends cls {
     // loaded virtually from tree, no chance of being out of sync
     // ancient lockfiles are critically damaged by this process,
     // so we need to just hope for the best in those cases.
+
     if (!s.loadedFromDisk || s.ancientLockfile) {
       return
     }
