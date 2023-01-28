@@ -45,6 +45,7 @@ const printableEdge = (edge) => {
 
 class Edge {
   constructor (options) {
+    // X3.4.3.6.1 edge contructor
     const { type, name, spec, accept, from, overrides } = options
 
     if (typeof spec !== 'string') {

@@ -74,6 +74,7 @@ const querySelectorAll = require('./query-selector-all.js')
 class Node {
   constructor (options) {
     // NB: path can be null if it's a link target
+    // X3.4.3.3
     const {
       root,
       path,
@@ -850,6 +851,7 @@ class Node {
     // Linked targets that are disconnected from the tree are tops,
     // but don't have a 'path' field, only a 'realpath', because we
     // don't know their canonical location. We don't need their devDeps.
+    // X3.4.3.4 create edges by pkg, skip peer for this line
     const pd = this.package.peerDependencies
     if (pd && typeof pd === 'object' && !this.legacyPeerDeps) {
       const pm = this.package.peerDependenciesMeta || {}
@@ -866,6 +868,7 @@ class Node {
       this[_loadDepType](peerOptional, 'peerOptional')
     }
 
+    // X3.4.3.5
     this[_loadDepType](this.package.dependencies, 'prod')
     this[_loadDepType](this.package.optionalDependencies, 'optional')
 
@@ -883,6 +886,7 @@ class Node {
   }
 
   [_loadDepType] (deps, type) {
+    // X3.4.3.6
     const ad = this.package.acceptDependencies || {}
     // Because of the order in which _loadDeps runs, we always want to
     // prioritize a new edge over an existing one

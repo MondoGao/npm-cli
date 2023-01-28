@@ -926,9 +926,9 @@ This is a one-time fix-up, please be patient...
       // otherwise we're setting regular non-peer deps as if they have
       // a virtual root of whatever brought in THIS node.
       // so we VR the node itself if the edge is not a peer
+      // X6.4.2 source == node
       const source = edge.peer ? peerSource : node
 
-      // X6.4.2
       const virtualRoot = this[_virtualRoot](source, true)
       // reuse virtual root if we already have one, but don't
       // try to do the override ahead of time, since we MAY be able
@@ -951,7 +951,9 @@ This is a one-time fix-up, please be patient...
       // But if x and y are loaded in the same virtual root, then they will
       // be forced to agree on a version of z.
       const required = new Set([edge.from])
+      // X6.4.3 parent == null
       const parent = edge.peer ? virtualRoot : null
+      // X6.4.4 workspace -> nodeFromEdge
       const dep = vrDep && vrDep.satisfies(edge) ? vrDep
         : await this[_nodeFromEdge](edge, parent, null, required)
 
@@ -1080,6 +1082,7 @@ This is a one-time fix-up, please be patient...
     // a context where they're likely to be resolvable.
     // Note that the virtual root will also have virtual copies of the
     // targets of any child Links, so that they resolve appropriately.
+    // X6.4.4.1 _nodeFromEdge
     const parent = parent_ || this[_virtualRoot](edge.from)
 
     const spec = npa.resolve(edge.name, edge.spec, edge.from.path)
